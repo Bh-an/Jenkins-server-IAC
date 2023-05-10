@@ -1,14 +1,14 @@
 # Jenkins server and supporting infrastructure using Ansible
 
-- Create a VPC in an AWS count along with related resources like subnets, route tables, gateways etc
-- Set up an EC2 instance from a custom ami with jenkins and supporting sorftware installed (to see how to make custom ami using packer: [repo link](https://github.com/Bh-an/jenkins-ami-build "Jenkins AMI build repo"))
-- Configure jenkins ec2 server:
-  - Enable certbot ssl verification
-  - Procure intitial jenkins password 
-  - Set docker and github authectications as jenkins secrets
-  - Add 2 job pipelines (for - [publishing helm-chart releases](TBA "Webapp helm chart"); [updating kube-cluster's helm-chart with pushes to webapp](TBA "Webapp"))
+- Creates a VPC in an AWS count along with related resources like subnets, route tables, gateways etc
+- Sets up an EC2 instance from a custom ami with jenkins and supporting sorftware installed (to see how to make custom ami using packer: [repo link](https://github.com/Bh-an/jenkins-ami-build "Jenkins AMI build repo"))
+- Configures a jenkins ec2 server:
+  - Enables certbot ssl verification
+  - Procures intitial jenkins password 
+  - Sets docker and github authectications as jenkins secrets
+  - Adds 2 job pipelines (for - [publishing helm-chart releases](TBA "Webapp helm chart"); [updating kube-cluster's helm-chart with pushes to webapp](TBA "Webapp"))
     *Note: Webhooks need to be configured for repos for jobs to be triggered: <jenkins-server-url>/github-webhook/*
-  - Install relevant plugins and software
+  - Installs relevant plugins and software
 
 ## Usage
 
