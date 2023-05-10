@@ -18,8 +18,9 @@
 - Ensure existence of keypair in aws account and private key on system
 - Change or create user-data.sh to contain your server name
 - Create a file <username>.yml in roles/vars/ containing config specific values (use existing refrences)
+- Go through and make changes as needed to jenkins configuration in roles/jenkins_configuration/tasks/main.yml
 
-*make sure relevant domain records and resources present in common_vars should exist in your aws account*
+*make sure relevant domain records and resources present in common_vars exist in your aws account*
 
 ### Jenkins Infrastructure Deployment:
 
@@ -41,28 +42,14 @@ ansible-playbook setup_playbook.yml --extra-var "instance_flag=no env=username"
 ansible-playbook configure_jenkins.yml --extra-var "env=username"
 ```
 
-### To launch Jenkins Infrastructure using a specific AWS Named Profile and in Debug mode, use:
+To launch Jenkins Infrastructure using a specific AWS Named Profile and in Debug mode, use:
 ```
 AWS_PROFILE={{named_profile}} ANSIBLE_DEBUG=true ansible-playbook setup_playbook.yml
 ```
 
-### Tearing down jenkins infrastructure:
+### Tearing down infrastructure:
 ```
 ansible-playbook termination_playbook.yml --extra-var "key=app value=jenkins env=username"
 ```
 *for only instance teardown, set network_flag=no*
-
-*note: network cannot be torn down before instance*
-
-
-### For Assignment 5:
-- Change vars in infra_setup
-- Change vars in jenkins_config
-- Change vars in configure_jenkins.yml
-
-### Command Examples:
-```
-ansible-playbook setup_playbook.yml --extra-var "env=raj"
-ansible-playbook configure_jenkins.yml --extra-var "env=raj" --ask-vault-pass
-ansible-playbook termination_playbook.yml --extra-var "key=app" --extra-var "value=jenkins"  --extra-var "env=raj"
-```
+  
