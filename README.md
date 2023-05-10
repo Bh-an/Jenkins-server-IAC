@@ -1,19 +1,27 @@
-# Setting up Jenkins Infrastructure using Ansible
+# Creating and configuring a Jenkins server with supporting infrastructure using Ansible
 
-### To set variables according to user, run:
+- Create a VPC in an AWS count along with related resources like subnets, route tables, gateways etc
+- Set up an EC2 instance from a custom ami with jenkins and supporting sorftware installed (to see how to make custom ami using packer: [repo link](https://github.com/Bh-an/jenkins-ami-build "Jenkins AMI build repo"))
+- Configure jenkins ec2 server:
+  - Enable certbot ssl verification
+  - Procure intitial jenkins password 
+  - Set docker and github authectications as jenkins secrets
+  - Add 2 job pipelines (for - [publishing helm-chart releases](TBA "Webapp helm chart"); [updating kube-cluster's helm-chart with pushes to webapp](TBA "Webapp"))
+    *Note: Webhooks need to be configured for repos for jobs to be triggered: <jenkins-server-url>/github-webhook/*
+  - Install relevant plugins and software
 
-```
-bash setvars.sh user
-```
-accepted users:
-- raj
-- bhan
+## Usage
 
-*note: The script is not executable and the usage of bash is required*
+### Setup configuration and variables:
 
-### For Jenkins Infrastructure Deployment:
+- Change the variables in roles/vars/common-vars.yml as needed
+- Ensure existence of keypair in aws account and private key on system
+- Change or create user-data.sh to contain your server name
+- Create a file <username>.yml in roles/vars/ containing config specific values (use existing refrences)
 
-Run:
+*make sure relevant domain records and resources present in common_vars should exist in your aws account*
+
+### Jenkins Infrastructure Deployment:
 
 ```
 export ANSIBLE_HOST_KEY_CHECKING=False
@@ -21,21 +29,15 @@ export ANSIBLE_HOST_KEY_CHECKING=False
 ansible-playbook setup_playbook.yml --extra-var "env=username"
 ```
 
-*for only network set up, set instance_flag=no*
+*for only network set up, set instance_flag to no*
 ```
-ansible-playbook setup_playbook.yml --extra-var "instance_flag=no"
+ansible-playbook setup_playbook.yml --extra-var "instance_flag=no env=username"
 ```
-*note: after network setup, instance can be deployed by running the playbook without any flags*
+*note: after network setup, instance can be deployed by running the playbook again without any flags*
 
-To configure jenkins and install plugins:
-
-Change the path to your private key in configure_jenkins.yml and set vars in role jenkins_configuration
-
-Then run:
+### Configure jenkins and install plugins:
 
 ```
-export ANSIBLE_HOST_KEY_CHECKING=False
-
 ansible-playbook configure_jenkins.yml --extra-var "env=username"
 ```
 
@@ -44,11 +46,11 @@ ansible-playbook configure_jenkins.yml --extra-var "env=username"
 AWS_PROFILE={{named_profile}} ANSIBLE_DEBUG=true ansible-playbook setup_playbook.yml
 ```
 
-### For jenkins instance termination, run:
+### Tearing down jenkins infrastructure:
 ```
-ansible-playbook termination_playbook.yml --extra-var "key=app" --extra-var "value=jenkins"  --extra-var "env=username"
+ansible-playbook termination_playbook.yml --extra-var "key=app value=jenkins env=username"
 ```
-*for only network/instance teardown, set instance_flag=no/network_flag=no*
+*for only instance teardown, set network_flag=no*
 
 *note: network cannot be torn down before instance*
 
