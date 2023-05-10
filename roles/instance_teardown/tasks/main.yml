@@ -1,0 +1,42 @@
+- name: Print out values
+  debug:
+    msg: "Key: {{ key }}; Value: {{ value }} flag: {{instance_flag}}"
+
+- name: Getting instance ID
+  ec2_instance_info:
+    filters:
+      tag:app : "{{ value }}"
+      instance-state-name: [ "running" ]
+  register: instance
+  when: instance_flag == "yes"
+
+- name: Finding elastic IP address
+  community.aws.ec2_eip_info:
+    filters:
+      tag:reserved_for: "{{ reserved_for_tag }}"
+  register: elastic_ip_result
+  when: instance_flag == "yes"
+
+- name: Print out values
+  debug:
+    msg: "Instance_ID: {{ instance.instances[0].instance_id }}; Elastic IP address: {{ elastic_ip_result.addresses[0].public_ip }}"
+  when: instance_flag == "yes"
+
+- name: Disassociate an elastic IP from an instance
+  community.aws.ec2_eip:
+    device_id: "{{ instance.instances[0].instance_id }}"
+    ip: "{{ elastic_ip_result.addresses[0].public_ip }}"
+    state: absent
+  when: instance_flag == "yes"
+
+- name: Terminate EC2 instance
+  ec2_instance:
+    state: terminated
+    wait: true
+    instance_ids: "{{ instance.instances[0].instance_id }}"
+  when: instance_flag == "yes"
+
+- name: Delete Key pair
+  amazon.aws.ec2_key:
+    name: my_keypair
+    state: absent

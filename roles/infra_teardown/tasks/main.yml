@@ -1,0 +1,107 @@
+- name: Set default variables
+  include_vars: "../vars/common_vars.yml"
+
+- name: Set user variables
+  include_vars: "../vars/{{ env }}.yml"
+
+- name: Get VPC
+  amazon.aws.ec2_vpc_net_info:
+    filters:
+      tag:Name : "{{ vpc_actual_name }}"
+  register: vpc_name
+
+- name: Print out values
+  debug:
+    msg: "Instance_ID: {{ vpc_name.vpcs[0].vpc_id }}"
+
+- name: Destroy ec2 vpc internet gateway
+    # create an internet gateway for the vpc
+  ec2_vpc_igw:
+    vpc_id: "{{ vpc_name.vpcs[0].vpc_id }}"
+    region: "{{ region }}"
+    state: "{{ state }}"
+    tags:
+      Name: "{{ igw_name }}"
+  register: igw_result
+  when: network_flag == "yes"
+
+- name: Destroy ec2 vpc subnet
+  # create the subnet for the vpc with a cidr block
+  ec2_vpc_subnet:
+    vpc_id: "{{ vpc_name.vpcs[0].vpc_id }}"
+    region: "{{ region }}"
+    az: "{{ zone }}"      # az is the availability zone
+    state: "{{ state }}"
+    cidr: "{{ subNetCidrBlock }}"
+    # enable public ip
+    map_public: yes
+    resource_tags:
+      Name: "{{ subnet_name }}"
+  register: subnet_result
+  when: network_flag == "yes"
+
+- name: Destroy ec2 security group
+  # create a security group for the vpc
+  ec2_group:
+    vpc_id: "{{ vpc_name.vpcs[0].vpc_id }}"
+    region: "{{ region }}"
+    state: "{{ state }}"
+    name: "{{ security_group_name }}"
+    description: "{{ security_group_name }}"
+    tags:
+      Name: "{{ security_group_name }}"
+  register: security_group_results
+  when: network_flag == "yes"
+
+- name: Destroy ec2 VPC Network access control list
+  # Delete the access control list
+  ec2_vpc_nacl:
+    vpc_id: "{{ vpc_name.vpcs[0].vpc_id }}"
+    region: "{{ region }}"
+    state: "{{ state }}"
+    name: "{{ acl_name }}"
+    tags:
+      Name: "{{ acl_name }}"
+      Description: "{{ acl_name }}"
+  register: acl_results
+  when: network_flag == "yes"
+
+- name: Destroy ec2 VPC public subnet route table
+  # Delete route table and connected subnet to routes
+  ec2_vpc_route_table:
+    vpc_id: "{{ vpc_name.vpcs[0].vpc_id }}"
+    region: "{{ region }}"
+    state: "{{ state }}"
+    tags:
+      Name: "{{ route_table_name }}"
+  register: public_route_table
+  when: network_flag == "yes"
+
+- name: Destroy the new ec2 VPC
+  # Delete VPC network
+  ec2_vpc_net:
+    name: "{{ vpc_actual_name }}"
+    cidr_block: "{{ vpcCidrBlock }}"
+    region: "{{ region }}"
+    state: "{{ state }}"
+    purge_cidrs: yes
+  register: ec2_vpc_net_result
+  when: network_flag == "yes"
+
+- name: Finding elastic IP address
+  community.aws.ec2_eip_info:
+    filters:
+      tag:reserved_for: "{{ reserved_for_tag }}"
+  register: elastic_ip_result
+  when: network_flag == "yes"
+
+- name: Destroy Route53 record
+  # Delete Route53 record
+  community.aws.route53:
+    state: "{{ state }}"
+    zone: "{{ route53_record_zone }}"
+    record: "{{ route53_record }}"
+    type: A
+    ttl: 60
+    value: "{{ elastic_ip_result.addresses[0].public_ip }}"
+  when: network_flag == "yes"

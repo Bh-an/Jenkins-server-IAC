@@ -1,0 +1,36 @@
+vpc_title: 'Ansible'
+vpc_name: "{{ vpc_title }} VPC"
+igw_name: "{{ vpc_title }} IGW"
+subnet_name: "{{ vpc_title }} Subnet"
+acl_name: "{{ vpc_title }} ACL"
+security_group_name: "{{ vpc_title }} Security Group"
+route_table_name: "{{ vpc_title }} route table"
+vpcCidrBlock: '10.0.0.0/16'
+subNetCidrBlock: '10.0.1.0/24'
+port22CidrBlock: '0.0.0.0/0'
+destinationCidrBlock: '0.0.0.0/0'
+
+state: 'present'
+zone: 'us-east-1a'
+region: 'us-east-1'
+
+instance_type: 't2.nano'
+
+# image: 'ami-0b8dde717b4925732'
+image: 'ami-0df059c81db00e198'
+
+# image: 'ami-0df059c81db00e198'
+
+# user_data: "{{ lookup('file', 'user-data.sh') }}"
+user_data: "{{ lookup('file', 'user-data-bhan.sh') }}"
+
+elastic_ip_tag: 'reserved_for'
+elastic_ip_tag_value: 'jenkins'
+
+# route53_record_zone: 'jenkins.rajmehta.live'
+# route53_record: 'jenkins.rajmehta.live'
+route53_record_zone: 'applicationbhan.me'
+route53_record: 'jenkins.applicationbhan.me'
+
+network_flag: "yes"
+instance_flag: "yes"

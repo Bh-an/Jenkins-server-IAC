@@ -1,0 +1,31 @@
+vpc_title: 'Ansible'
+vpc_name: "{{ vpc_title }} VPC"
+vpc_actual_name: "{{ vpc_title }} VPC"
+igw_name: "{{ vpc_title }} IGW"
+subnet_name: "{{ vpc_title }} Subnet"
+acl_name: "{{ vpc_title }} ACL"
+security_group_name: "{{ vpc_title }} Security Group"
+route_table_name: "{{ vpc_title }} route table"
+
+vpcCidrBlock: '10.0.0.0/16'
+subNetCidrBlock: '10.0.1.0/24'
+port22CidrBlock: '0.0.0.0/0'
+destinationCidrBlock: '0.0.0.0/0'
+
+zone: 'us-east-1a'
+region: 'us-east-1'
+instance_type: 't2.small'
+
+image: 'ami-01ff4956f0bbcb617'
+
+elastic_ip_tag: 'reserved_for'
+elastic_ip_tag_value: 'jenkins'
+network_flag: "yes"
+instance_flag: "yes"
+
+jenkins_admin_username: admin
+reserved_for_tag: 'jenkins'
+#github_token: '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'
+
+github_token_id: 'gh-token'
+github_token_secret_id: 'gh-token-secret'

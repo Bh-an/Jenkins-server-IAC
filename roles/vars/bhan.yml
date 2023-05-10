@@ -1,0 +1,10 @@
+user_data: "{{ lookup('file', 'user-data-bhan.sh') }}"
+route53_record_zone: 'applicationbhan.me'
+route53_record: 'jenkinsmain.applicationbhan.me'
+keypair_name: 'JenkinKeyPair'
+
+path_to_private_key: "~/jenkinskey"
+domain_name: 'jenkinsmain.applicationbhan.me'
+certemail: 'bhan.yum98@gmail.com'
+
+docker_password: "lumia1320"

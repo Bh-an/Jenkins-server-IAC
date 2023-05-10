@@ -1,0 +1,8 @@
+---
+- name : Terminating EC2 instance
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  roles:
+    - instance_teardown
+    - infra_teardown

@@ -1,0 +1,31 @@
+- name: Set default variables
+  include_vars: "../vars/common_vars.yml"
+
+- name: Set user variables
+  include_vars: "../vars/{{ env }}.yml"
+  
+- name: Populating host list
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    reserved_for_tag: 'jenkins'
+  tasks:
+    - name: Finding elastic IP address
+      community.aws.ec2_eip_info:
+        filters:
+          tag:reserved_for: "{{ reserved_for_tag }}"
+      register: elastic_ip_result
+
+    - name: Add instance public IP to host group
+      add_host: hostname={{ elastic_ip_result.addresses[0].public_ip }} groups=ec2hosts
+
+- name: Jenkins configuration
+  hosts: ec2hosts
+  become: yes
+  remote_user: ubuntu
+  gather_facts: false
+  vars:
+    ansible_ssh_private_key_file: "~/jenkinskey"
+  roles:
+    - jenkins_configuration

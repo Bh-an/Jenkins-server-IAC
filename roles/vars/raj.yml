@@ -1,0 +1,11 @@
+user_data: "{{ lookup('file', 'user-data.sh') }}"
+route53_record_zone: 'jenkins.rajmehta.live'
+route53_record: 'jenkins.rajmehta.live'
+keypair_name: 'JenkinKeyPair'
+
+
+path_to_private_key: "~/CSYE7125/id_rsa.pub"
+domain_name: 'jenkins.rajmehta.live'
+certemail: 'rajmehta53@live.com'
+
+docker_password: "lumia1320"

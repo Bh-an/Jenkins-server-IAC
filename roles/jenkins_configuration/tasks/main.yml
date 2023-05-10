@@ -1,0 +1,390 @@
+- name: Set default variables
+  include_vars: "../vars/common_vars.yml"
+
+- name: Set user variables
+  include_vars: "../vars/{{ env }}.yml"
+
+- name: Set user variables
+  include_vars: "vault/vault.yml"
+
+- name: get jenkins initial password
+  slurp:
+    src: "/var/lib/jenkins/secrets/initialAdminPassword"
+  register: jenkins_admin_password
+
+- name: enable certbot for jenkins ssl
+  raw: certbot --nginx -d {{domain_name}} -m {{certemail}} -n --agree-tos
+
+- name: install dependencies
+  shell:
+    cmd: |
+
+      apt install jq -y
+
+  become: true
+
+- name: Disable Jenkins setup wizard
+  lineinfile:
+    dest=/etc/default/jenkins
+    regexp=^JAVA_ARGS=
+    line=JAVA_ARGS="-Djava.awt.headless=true -Djenkins.install.runSetupWizard=false"
+  become: true
+
+
+
+- name: Enable first login for jenkins programmatically
+  shell:
+    cmd: |
+
+      mkdir /var/lib/jenkins/init.groovy.d
+      touch /var/lib/jenkins/init.groovy.d/basic-security.groovy
+
+      cat > /var/lib/jenkins/init.groovy.d/basic-security.groovy <<EOF
+      #!groovy
+
+      import jenkins.model.*
+      import hudson.util.*;
+      import jenkins.install.*;
+      import javaposse.jobdsl.dsl.DslScriptLoader
+
+      def instance = Jenkins.getInstance()
+
+      instance.setInstallState(InstallState.INITIAL_SETUP_COMPLETED)
+      EOF
+
+      systemctl daemon-reload
+
+      systemctl restart jenkins
+
+      rm -f /var/lib/jenkins/init.groovy.d/basic-security.groovy
+  become: true
+
+- name: "Install Jenkins plugins"
+  jenkins_plugin:
+    owner: jenkins  
+    group: jenkins
+    name: "{{ item }}"
+    url_username: "{{ jenkins_admin_username }}"
+    url_password: "{{ jenkins_admin_password['content'] | b64decode | trim }}"
+    url: http://localhost:8080  
+    force_basic_auth: yes
+  with_items:
+    - github
+    - github-api
+    - workflow-aggregator
+    - credentials
+    - durable-task
+    - envinject
+    - git
+    - git-client
+    - git-server
+    - job-dsl
+    - mapdb-api
+    - mask-passwords
+    - maven-plugin
+    - parameterized-trigger
+    - pipeline-utility-steps
+    - plain-credentials
+    - scm-api
+    - ssh-agent
+    - subversion
+    - ghprb
+    - kubernetes-cli
+
+
+- name: Removing admin login setup for jenkins programmatically
+  shell:
+    cmd: |
+
+      mkdir /var/lib/jenkins/init.groovy.d
+      touch /var/lib/jenkins/init.groovy.d/basic-security.groovy
+
+      cat > /var/lib/jenkins/init.groovy.d/basic-security.groovy <<EOF
+      #!groovy
+
+      import jenkins.model.*
+      import hudson.util.*;
+      import jenkins.install.*;
+
+      def instance = Jenkins.getInstance()
+
+      instance.setInstallState(InstallState.INITIAL_SETUP_COMPLETED)
+      EOF
+
+      systemctl daemon-reload
+
+      systemctl restart jenkins
+
+      rm -f /var/lib/jenkins/init.groovy.d/basic-security.groovy
+  become: true
+
+
+- name: Get crumb for webhook
+  shell:
+    cmd: curl -v -X GET http://localhost:8080/crumbIssuer/api/json --user admin:{{ jenkins_admin_password['content'] | b64decode | trim }}
+  register: jenkins_crumb
+
+- name: Print out values
+  debug:
+    msg: "Jenkins crumb: {{ jenkins_crumb.stdout }}; Jenkins password: {{ jenkins_admin_password['content'] | b64decode | trim }}"
+
+- name: Get crumb for webhook
+  uri:
+    url: 'http://127.0.0.1:8080/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,":",//crumb)'
+    user: admin
+    password: "{{ jenkins_admin_password['content'] | b64decode | trim }}"
+    force_basic_auth: yes
+    return_content: yes
+  register: crumb
+
+
+- name: Setting github token as jenkins secret
+  uri:
+    method: POST
+    url: 'http://localhost:8080/credentials/store/system/domain/_/createCredentials'
+    # user: admin
+    # password: "{{ jenkins_admin_password['content'] | b64decode | trim }}"
+    url_username: "{{ jenkins_admin_username }}"
+    url_password: "{{ jenkins_admin_password['content'] | b64decode | trim }}"
+    force_basic_auth: yes
+    body_format: form-urlencoded
+    status_code: 302
+
+    headers:
+      Jenkins-Crumb: "{{ crumb.content.split(':')[1] }}"
+      Cookie: "{{ crumb.set_cookie }}"
+    body: |
+      json={
+        "": "0",
+        "credentials": {
+          "scope": "GLOBAL",
+          "id": "{{ github_token_secret_id }}",
+          "username": "Bh-an",
+          "password": "{{ github_token }}",
+          "$class": "com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl"
+        }
+      }
+
+- name: Setting Docker credentials as jenkins secret
+  uri:
+    method: POST
+    url: 'http://localhost:8080/credentials/store/system/domain/_/createCredentials'
+    # user: admin
+    # password: "{{ jenkins_admin_password['content'] | b64decode | trim }}"
+    url_username: "{{ jenkins_admin_username }}"
+    url_password: "{{ jenkins_admin_password['content'] | b64decode | trim }}"
+    force_basic_auth: yes
+    body_format: form-urlencoded
+    follow_redirects: yes
+
+    headers:
+      Jenkins-Crumb: "{{ crumb.content.split(':')[1] }}"
+      Cookie: "{{ crumb.set_cookie }}"
+    body: |
+      json={
+        "": "0",
+        "credentials": {
+          "scope": "GLOBAL",
+          "id": "docker_creds",
+          "username": "rajmehta53",
+          "password": "{{ docker_password }}",
+          "$class": "com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl"
+        }
+      }
+
+- name: Setting Kubernetes API credentials as jenkins secret
+  uri:
+    method: POST
+    url: 'http://localhost:8080/credentials/store/system/domain/_/createCredentials'
+    # user: admin
+    # password: "{{ jenkins_admin_password['content'] | b64decode | trim }}"
+    url_username: "{{ jenkins_admin_username }}"
+    url_password: "{{ jenkins_admin_password['content'] | b64decode | trim }}"
+    force_basic_auth: yes
+    body_format: form-urlencoded
+    follow_redirects: yes
+
+    headers:
+      Jenkins-Crumb: "{{ crumb.content.split(':')[1] }}"
+      Cookie: "{{ crumb.set_cookie }}"
+    body: |
+      json={
+        "": "0",
+        "credentials": {
+          "scope": "GLOBAL",
+          "id": "jenkins-agent",
+          "secret": "eyJhbGciOiJSUzI1NiIsImtpZCI6IlFRcUVHUFdBcl9ZMWZBQVR1VjBLWUhqOExuc0x4aWdYVVFYUVROSFd0Z3MifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJqZW5raW5zLWFnZW50cyIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VjcmV0Lm5hbWUiOiJqZW5raW5zLWFnZW50LXRva2VuLTViOGZnIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImplbmtpbnMtYWdlbnQiLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC51aWQiOiIwMTg4N2U5MC1jMTU0LTQwYjYtOWFkOC03ZTViZGViNmUzMDAiLCJzdWIiOiJzeXN0ZW06c2VydmljZWFjY291bnQ6amVua2lucy1hZ2VudHM6amVua2lucy1hZ2VudCJ9.cemZTmg_hIZ4CxCKccwwYQ_FAzZBwUFGmKYUmiAID-t1syHu1MZGwXDcSEGwSKXUt6py30nDRM_tPGlJq61mzBHeWJdih1TJqeZj5GLMfkFj3fCKqY_YhVIxjwy5zF1kwEOlvSqcUFVwDkoqa3Lr4y4uBsW5JND_aheVapIMqOSQJyh2P2l3o0egywnQlBig4dVLYCYKBWBTGMjtjn3sXdV7eL9-UumQxOmUlQIVfgxUs5zOEkkV06lxFHw_D1O4rxtY1XvHBzW6xgtYgORnREORkdzPk6dL03JUl7mQE9pmT_ekW0PautQMnokEspLBFvXmDOl7QaXUhRty0rGmaQ",
+          "$class": "org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl"
+        }
+      }
+
+- name: Print out values
+  debug:
+    msg: "Jenkins crumb: {{ crumb.content.split(':')[1] }} ; Jenkins password: {{ jenkins_admin_password['content'] | b64decode | trim }}"
+
+- name: Pipeline Job - Helm
+  shell:
+    cmd: |
+      cd /var/lib/jenkins/init.groovy.d
+      touch /var/lib/jenkins/init.groovy.d/pipeline_setup.groovy
+
+      cat > /var/lib/jenkins/init.groovy.d/pipeline_setup.groovy <<EOF
+      import hudson.plugins.git.*;
+      import jenkins.model.*
+      import hudson.util.*;
+      import jenkins.install.*;
+      import hudson.model.FreeStyleProject;
+      import hudson.plugins.git.GitSCM;
+      import hudson.plugins.git.BranchSpec;
+      import hudson.triggers.SCMTrigger;
+      import hudson.util.Secret;
+      import javaposse.jobdsl.plugin.*;
+      import jenkins.model.Jenkins;
+      import jenkins.model.JenkinsLocationConfiguration;
+      import com.cloudbees.plugins.credentials.CredentialsScope;
+      import com.cloudbees.plugins.credentials.domains.Domain;
+      import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
+      import jenkins.model.JenkinsLocationConfiguration;
+      import org.jenkinsci.plugins.ghprb.GhprbGitHubAuth;
+      import org.jenkinsci.plugins.ghprb.GhprbTrigger.DescriptorImpl;
+      import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
+      import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl.DescriptorImpl;
+      import org.jenkinsci.plugins.scriptsecurity.sandbox.Whitelist;
+      import org.jenkinsci.plugins.scriptsecurity.sandbox.whitelists.BlanketWhitelist;
+      import org.jenkinsci.plugins.workflow.job.WorkflowJob;
+      import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition;
+
+      def parent = Jenkins.getInstance()
+      
+      def jenkinsCredentials = com.cloudbees.plugins.credentials.CredentialsProvider.lookupCredentials(
+        com.cloudbees.plugins.credentials.Credentials.class,
+        Jenkins.getInstance(),
+        null,
+        null
+      );
+
+      def scm = new GitSCM("https://github.com/csye7125-fall2022-group01/helm-chart.git")
+      scm.branches = [new BranchSpec("*/main")];
+      scm.userRemoteConfigs[0].credentialsId = jenkinsCredentials.id[0]
+
+      def flowDefinition = new org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition(scm, "Jenkinsfile")
+
+      def job = new org.jenkinsci.plugins.workflow.job.WorkflowJob(parent, "Helm Chart")
+      job.definition = flowDefinition
+
+      parent.reload()
+
+      parent.setInstallState(InstallState.INITIAL_SETUP_COMPLETED)
+      EOF
+
+      systemctl daemon-reload
+      systemctl restart jenkins
+
+  become: true
+
+- name: Pipeline Job - Webapp
+  shell:
+    cmd: |
+      cd /var/lib/jenkins/init.groovy.d
+      touch /var/lib/jenkins/init.groovy.d/pipeline_setup.groovy
+
+      cat > /var/lib/jenkins/init.groovy.d/pipeline_setup.groovy <<EOF
+      import hudson.plugins.git.*;
+      import jenkins.model.*
+      import hudson.util.*;
+      import jenkins.install.*;
+      import hudson.model.FreeStyleProject;
+      import hudson.plugins.git.GitSCM;
+      import hudson.plugins.git.BranchSpec;
+      import hudson.triggers.SCMTrigger;
+      import hudson.util.Secret;
+      import javaposse.jobdsl.plugin.*;
+      import jenkins.model.Jenkins;
+      import jenkins.model.JenkinsLocationConfiguration;
+      import com.cloudbees.plugins.credentials.CredentialsScope;
+      import com.cloudbees.plugins.credentials.domains.Domain;
+      import com.cloudbees.plugins.credentials.SystemCredentialsProvider;
+      import jenkins.model.JenkinsLocationConfiguration;
+      import org.jenkinsci.plugins.ghprb.GhprbGitHubAuth;
+      import org.jenkinsci.plugins.ghprb.GhprbTrigger.DescriptorImpl;
+      import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl;
+      import org.jenkinsci.plugins.plaincredentials.impl.StringCredentialsImpl.DescriptorImpl;
+      import org.jenkinsci.plugins.scriptsecurity.sandbox.Whitelist;
+      import org.jenkinsci.plugins.scriptsecurity.sandbox.whitelists.BlanketWhitelist;
+      import org.jenkinsci.plugins.workflow.job.WorkflowJob;
+      import org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition;
+
+      def parent = Jenkins.getInstance()
+      
+      def jenkinsCredentials = com.cloudbees.plugins.credentials.CredentialsProvider.lookupCredentials(
+        com.cloudbees.plugins.credentials.Credentials.class,
+        Jenkins.getInstance(),
+        null,
+        null
+      );
+
+      def scm = new GitSCM("https://github.com/csye7125-fall2022-group01/webapp.git")
+      scm.branches = [new BranchSpec("*/main")];
+      scm.userRemoteConfigs[0].credentialsId = jenkinsCredentials.id[0]
+
+      def flowDefinition = new org.jenkinsci.plugins.workflow.cps.CpsScmFlowDefinition(scm, "Jenkinsfile")
+
+      def job = new org.jenkinsci.plugins.workflow.job.WorkflowJob(parent, "Webapp")
+      job.definition = flowDefinition
+
+      parent.reload()
+
+      parent.setInstallState(InstallState.INITIAL_SETUP_COMPLETED)
+      EOF
+
+      systemctl daemon-reload
+      systemctl restart jenkins
+
+  become: true
+
+
+
+
+
+- name: get jenkins password
+  slurp:
+    src: "/var/lib/jenkins/secrets/initialAdminPassword"
+  register: jenkins_admin_password
+
+- name: Get crumb for webhook
+  uri:
+    url: 'http://127.0.0.1:8080/crumbIssuer/api/xml?xpath=concat(//crumbRequestField,":",//crumb)'
+    user: admin
+    password: "{{ jenkins_admin_password['content'] | b64decode | trim }}"
+    force_basic_auth: yes
+    return_content: yes
+  register: crumb  
+
+
+- name: Setting github token as jenkins credential
+  uri:
+    method: POST
+    url: 'http://localhost:8080/credentials/store/system/domain/_/createCredentials'
+    # user: admin
+    # password: "{{ jenkins_admin_password['content'] | b64decode | trim }}"
+    url_username: "{{ jenkins_admin_username }}"
+    url_password: "{{ jenkins_admin_password['content'] | b64decode | trim }}"
+    force_basic_auth: yes
+    body_format: form-urlencoded
+    status_code: 302
+
+    headers:
+      Jenkins-Crumb: "{{ crumb.content.split(':')[1] }}"
+      Cookie: "{{ crumb.set_cookie }}"
+    body: |
+      json={
+        "": "0",
+        "credentials": {
+          "scope": "GLOBAL",
+          "id": "{{ github_token_id }}",
+          "username": "Bh-an",
+          "password": "{{ github_token }}",
+          "description": "Github org credentials",
+          "$class": "com.cloudbees.plugins.credentials.impl.UsernamePasswordCredentialsImpl"
+        }
+      }
