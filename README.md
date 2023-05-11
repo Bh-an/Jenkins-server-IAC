@@ -6,7 +6,7 @@
   - Enables certbot ssl verification
   - Procures intitial jenkins password 
   - Sets docker and github authectications as jenkins secrets
-  - Adds 2 job pipelines (for - publishing helm-chart releases: [repo link](https://github.com/Bh-an/Helm-chart-webapp "Webapp helm chart"); updating kube-cluster's helm-chart with pushes to webapp: [see repo](https://github.com/Bh-an/Webapp-KubeCluster "Webapp"))
+  - Adds 2 job pipelines (publishing helm-chart releases: [repo link](https://github.com/Bh-an/Helm-chart-webapp "Webapp helm chart"); updating kube-cluster's helm-chart with pushes to webapp: [see repo](https://github.com/Bh-an/Webapp-KubeCluster "Webapp"))
   - Installs relevant plugins and software
   
   *Note: Webhooks need to be configured for repos for jobs to be triggered: <jenkins-server-url>/github-webhook/*
